@@ -15,13 +15,6 @@
 *****************************************************************************************
 '''
 
-# Team ID:			[ Team-ID ]
-# Author List:		[ Names of team members worked on this file separated by Comma: Name1, Name2, ... ]
-# Filename:			task_1b.py
-# Functions:		detect_Qr_details, detect_ArUco_details
-# 					[ Comma separated list of functions in this file ]
-
-
 ####################### IMPORT MODULES #######################
 ## You are not allowed to make any changes in this section. ##
 ## You have to implement this task with the five available  ##
@@ -66,11 +59,35 @@ def detect_Qr_details(image):
     """    
     Qr_codes_details = {}
 
-    ##############	ADD YOUR CODE HERE	##############
+    img = image
+    l = []
+
+    for code in pyzbar.decode(img):
+        decoded_data = code.data.decode("utf-8")
+        rect_pts = code.rect
+        if decoded_data:
+            pts = np.array([code.polygon], np.int32)
+
+            M = cv2.moments(pts)
+            if M['m00'] != 0:
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
+                cv2.circle(img, (cx, cy), 7, (255, 0, 0), -1)
+                l.append((cx, cy))
+
+    decoded = pyzbar.decode(image)
+
+    k = 0
+    for i in decoded:
+        for j in i:
+
+            if type(j) == bytes:
+                string = j.decode('utf-8')
+                Qr_codes_details.update({string: list(l[k])})
+                k += 1
+    return Qr_codes_details
     
-    ##################################################
-    
-    return Qr_codes_details    
+
 
 def detect_ArUco_details(image):
 
@@ -99,12 +116,224 @@ def detect_ArUco_details(image):
     """    
     ArUco_details_dict = {} #should be sorted in ascending order of ids
     ArUco_corners = {}
-    
-    ##############	ADD YOUR CODE HERE	##############
-   
-    ##################################################
-    
-    return ArUco_details_dict, ArUco_corners 
+
+    id = []
+    img = image
+
+    marker_dict = aruco.Dictionary_get(aruco.DICT_5X5_50)
+    param_markers = aruco.DetectorParameters_create()
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    marker_corners, marker_IDs, reject = aruco.detectMarkers(gray, marker_dict, parameters=param_markers)
+    req1 = []
+    k = 0
+
+    for id1 in marker_IDs:
+        id.append(int(id1[0]))
+
+    req = []
+
+    for i in marker_corners:
+        req.append(tuple(i[0][0]))
+        req1.append(tuple(i[0][0]))
+        req1.append(tuple(i[0][1]))
+        req1.append(tuple(i[0][2]))
+        req1.append(tuple(i[0][3]))
+
+    j = 1
+    d1 = {}
+    for i in req1:
+        d1[j] = i
+        j += 1
+
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    ret, thresh = cv2.threshold(blur, 90, 255, cv2.THRESH_BINARY)
+
+    Canny = cv2.Canny(thresh, 10, 70)
+    contours, pt = cv2.findContours(Canny, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    l = []
+    angle = []
+    angle1 = []
+    cnt = 0
+    centers = []
+    cont = []
+    pos = []
+    d = {}
+    cnt1 = 0
+    corners = []
+    for c in contours:
+        area = cv2.contourArea(c)
+        if (area > 5000):
+            # cv2.drawContours(img,c,-1,(0,255,0),3)
+
+            M = cv2.moments(c)
+            if M['m00'] != 0:
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
+                cv2.circle(img, (cx, cy), 7, (0, 0, 255), -1)
+                centers.append((cx, cy))
+
+                approx = cv2.approxPolyDP(c, 0.01 * cv2.arcLength(c, True), True)
+
+                # cv2.circle(img,(261,260),7,(0,255,0),-1)
+                color = (0, 255, 0)
+                count = 1
+                cnt += 1
+                if (cnt % 2 == 0):
+                    continue
+
+                for i in approx:
+                    corners.append(tuple(i[0]))
+                    for j in i:
+                        cnt1 += 1
+                        k = tuple(j)
+                        if (count == 1 or count == 2):
+                            l.append(k)
+                        if (count == 4):
+                            angle.append(k)
+                        if (count == 1 or count == 4):
+                            angle1.append(k)
+                        if (count == 2):
+                            pos.append(k)
+                        cv2.circle(img, k, 2, color, -1)
+                        d[cnt1] = k
+                        count += 1
+                    if (count == 2):
+                        color = (0, 0, 0)
+                    elif (count == 3):
+                        color = (255, 255, 255)
+                    elif (count == 4):
+                        color = (241, 82, 240)
+
+    l1 = []
+    i = 0
+    j = 1
+
+    while (j <= len(l)):
+        l1.append([l[i], l[j]])
+        i += 2
+        j += 2
+
+    c = 0
+
+    for i in angle:
+        extension = (i[0], i[1] - 100)
+
+    j = 1
+    k = 0
+
+    points = angle1.copy()
+    p = 2
+    while (j <= len(angle1)):
+        o = angle1[k][1] - 100
+        points.insert(p, (angle1[k][0], o))
+        p += 3
+        k += 2  # 2
+        j += 2
+
+    for i in l1:
+        cx = (i[0][0] + i[1][0]) // 2
+        cy = (i[0][1] + i[1][1]) // 2
+
+        cv2.line(img, centers[c], (cx, cy), (255, 0, 0), 3)
+        c += 2
+
+    res = []
+    i = 0
+    j = 1
+    k = 2
+    while (k <= len(points)):
+        res.append([points[i], points[j], points[k]])
+        i += 3
+        j += 3
+        k += 3
+
+    def slope(p1, p2):
+        return (p2[0] - p1[0]) / (p2[1] - p1[1])
+
+    l = 0
+    keys = []
+    j = 0
+    ans = []
+    for i in res:
+        b = i[-3]
+
+        a = i[-1]
+
+        c = i[-2]
+
+        m1 = slope(b, a)
+
+        m2 = slope(b, c)
+        angle = math.atan((m2 - m1) / 1 + m1 * m2)
+        angle = round(math.degrees((angle)))
+        for key in d:
+            for i in req:
+                if (abs(i[0] - d[key][0]) <= 3 and abs(i[0] - d[key][0]) >= 0):
+                    keys.append(key)
+        diff1 = diff2 = diff3 = diff4 = 0
+        for k in req1:
+            if (abs(k[0] - b[0]) <= 27 and abs(k[0] - b[0]) >= 0 and abs(k[1]-b[1])<=27 and abs(k[1]-b[1])>=0):
+                diff1 = abs(b[0] - k[0])
+                diff2 = abs(b[1] - k[1])
+
+
+                
+
+                final1 = diff2 - diff1
+
+
+            if (abs(k[0] - c[0]) <= 27 and abs(k[0] - c[0]) >= 0 and abs(k[1]-c[1])<=27 and abs(k[1]-c[1])>=0):
+                diff3 = abs(c[0] - k[0])
+                diff4 = abs(c[1] - k[1])
+
+                final2 = diff4 - diff3
+
+
+        answer=final1+final2
+
+        if (keys[j] == 3 or keys[j] == 7 or keys[j] == 11 or keys[j] == 15 or keys[j] == 19 or keys[j] == 23 or keys[
+            j] == 27 or keys[j] == 31):
+            angle = (angle + 90 + answer)
+        elif (keys[j] == 1 or keys[j] == 5 or keys[j] == 9 or keys[j] == 13 or keys[j] == 17 or keys[j] == 21 or keys[
+            j] == 25 or keys[j] == 29):
+            angle = (-(90 - angle + answer))
+        elif (keys[j] % 4 == 0):
+            angle = (-(180 - angle + answer))
+        else:
+            angle = angle + answer
+        angle = int(angle)
+        ans.append(angle)
+        cv2.putText(img, str(angle), pos[l], cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 4)
+        l += 1
+        j += 1
+
+    dictionary = {}
+    list2 = []
+    o = 0
+    i = 0
+
+    while (i < len(centers)):
+        list1 = []
+        list1.append(list(centers[i]))
+        list1.append(ans[o])
+        o += 1
+        i += 2
+        list2.append(list1)
+    dictionary = {}
+    j = 0
+    for i in id:
+        dictionary[i] = list2[j]
+        j += 1
+
+    '''sorted_value_index = np.argsort(dictionary.values())
+    dictionary_keys = list(dictionary.keys())
+    ArUco_details_dict = {dictionary_keys[i]: sorted(
+        dictionary.values())[i] for i in range(len(dictionary_keys))}'''
+    ArUco_details_dict=dictionary
+
+
+
+    return ArUco_details_dict, ArUco_corners
 
 ######### YOU ARE NOT ALLOWED TO MAKE CHANGES TO THE CODE BELOW #########	
 
@@ -192,4 +421,3 @@ if __name__ == "__main__":
             cv2.imshow("img",img)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
-
