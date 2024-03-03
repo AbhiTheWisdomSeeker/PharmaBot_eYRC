@@ -14,30 +14,48 @@
 *
 *****************************************************************************************
 '''
-
-# Team ID:			[ Team-ID ]
-# Author List:		[ Names of team members worked on this file separated by Comma: Name1, Name2, ... ]
-# Filename:			task_1a.py
-# Functions:		detect_traffic_signals, detect_horizontal_roads_under_construction, detect_vertical_roads_under_construction,
-#					detect_medicine_packages, detect_arena_parameters
-# 					[ Comma separated list of functions in this file ]
-
-
 ####################### IMPORT MODULES #######################
 ## You are not allowed to make any changes in this section. ##
 ## You have to implement this task with the three available ##
 ## modules for this task (numpy, opencv)                    ##
 ##############################################################
+from cmath import pi
+import re
 import cv2
 import numpy as np
+from pyscreeze import pixel
 ##############################################################
 
 ################# ADD UTILITY FUNCTIONS HERE #################
-
-
-
-
-
+def nodes(l):
+    X = {100:'A',200:'B',300:'C',400:'D',500:'E',600:'F',700:'G'}
+    Y = {100:'1',200:'2',300:'3',400:'4',500:'5',600:'6',700:'7'}
+    node = str(X[l[0]]) + str(Y[l[1]])
+    return node
+def get_color(x, y, maze_image):
+    hsv = cv2.cvtColor(maze_image, cv2.COLOR_BGR2HSV)
+    pixel_center = hsv[y, x]
+    if pixel_center[0] == 15:
+        return 'Orange'
+    elif pixel_center[0] == 90:
+        return 'Skyblue'
+    elif pixel_center[0] == 60:
+        return 'Green'
+    elif pixel_center[0] == 159:
+        return 'Pink'
+def get_shop_number(x, y):
+    if 100 < x < 200 and 100 < y < 200:
+        return 'Shop_1'
+    elif 200 < x < 300 and 100 < y < 200:
+        return 'Shop_2'
+    elif 300 < x < 400 and 100 < y < 200:
+        return 'Shop_3'
+    elif 400 < x < 500 and 100 < y < 200:
+        return 'Shop_4'
+    elif 500 < x < 600 and 100 < y < 200:
+        return 'Shop_5'
+    elif 600 < x < 700 and 100 < y < 200:
+        return 'Shop_6'
 ##############################################################
 
 def detect_traffic_signals(maze_image):
@@ -64,7 +82,29 @@ def detect_traffic_signals(maze_image):
 	traffic_signals = []
 
 	##############	ADD YOUR CODE HERE	##############
-	
+	mask = np.zeros(maze_image.shape, dtype=np.uint8)
+	red_lower = np.array([0, 50, 50])
+	red_upper = np.array([10, 255, 255])
+	l1 = []
+	hsv = cv2.cvtColor(maze_image,cv2.COLOR_BGR2HSV)
+	mask = cv2.inRange(hsv,red_lower,red_upper)
+	ret, thresh = cv2.threshold(mask.copy(), 10, 255, cv2.THRESH_BINARY)
+	contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+	for contour in contours:
+		M = cv2.moments(contour)
+		l2 = []
+		if M["m00"] != 0:
+			x = int(M["m10"] / M["m00"])
+			y = int(M["m01"] / M["m00"])
+			if y % 100 == 0:
+				l2.append(x)
+				l2.append(y)
+				l1.append(l2)
+		else:
+			x, y = 0, 0
+	l1.sort()
+	for i in l1:
+		traffic_signals.append(nodes(i))
 	##################################################
 	
 	return traffic_signals
@@ -94,10 +134,34 @@ def detect_horizontal_roads_under_construction(maze_image):
 	horizontal_roads_under_construction = []
 
 	##############	ADD YOUR CODE HERE	##############
-	
+	horizontal_road = {}
+	horizontal_road_total = [700,600,500,400,300,200,100]
+	gray=cv2.cvtColor(maze_image,cv2.COLOR_BGR2GRAY)
+	ret, thresh = cv2.threshold(gray.copy(), 10, 255, cv2.THRESH_BINARY)
+	contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+	for contour in contours:
+		M = cv2.moments(contour)
+		if M["m00"] != 0:
+			x = int(M["m10"] / M["m00"])
+			y = int(M["m01"] / M["m00"])
+			if x >= 80 and y >= 80:
+				if x % 100 != 0 and x % 50 == 0:
+					if x not in horizontal_road:
+						horizontal_road.update({x: [y]})
+					else:
+						horizontal_road[x].append(y)
+		else:
+			x, y = 0, 0
+	for key,value in horizontal_road.items():
+		for i in horizontal_road_total:
+			if i not in value:
+				pre =str(nodes([int(key)-50,i]))
+				post = str(nodes([int(key)+50,i]))
+				horizontal_roads_under_construction.append(pre+'-'+post)
+	horizontal_roads_under_construction.sort()
 	##################################################
-	
-	return horizontal_roads_under_construction	
+
+	return horizontal_roads_under_construction
 
 def detect_vertical_roads_under_construction(maze_image):
 
@@ -123,7 +187,31 @@ def detect_vertical_roads_under_construction(maze_image):
 	vertical_roads_under_construction = []
 
 	##############	ADD YOUR CODE HERE	##############
-	
+	vertical_road = {}
+	vertical_road_total = [650,550,450,350,250,150]
+	gray=cv2.cvtColor(maze_image,cv2.COLOR_BGR2GRAY)
+	ret, thresh = cv2.threshold(gray.copy(), 10, 255, cv2.THRESH_BINARY)
+	contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+	for contour in contours:
+		M = cv2.moments(contour)
+		if M["m00"] != 0:
+			x = int(M["m10"] / M["m00"])
+			y = int(M["m01"] / M["m00"])
+			if x >= 80 and y >= 80:
+				if x % 100 == 0:
+					if x not in vertical_road:
+						vertical_road.update({x: [y]})
+					else:
+						vertical_road[x].append(y)
+		else:
+			x, y = 0, 0
+	for key,value in vertical_road.items():
+		for i in vertical_road_total:
+			if i not in value:
+				pre =str(nodes([int(key),int(i)-50]))
+				post = str(nodes([int(key),int(i)+50]))
+				vertical_roads_under_construction.append(pre+'-'+post)
+	vertical_roads_under_construction.sort()
 	##################################################
 	
 	return vertical_roads_under_construction
@@ -159,13 +247,67 @@ def detect_medicine_packages(maze_image):
 	---
 	medicine_packages = detect_medicine_packages(maze_image)
 	"""    
-	medicine_packages = []
+	medicine_packages_present = []
 
 	##############	ADD YOUR CODE HERE	##############
-
+	hsv = cv2.cvtColor(maze_image, cv2.COLOR_BGR2HSV)
+	mask = np.zeros(maze_image.shape, dtype=np.uint8)
+	mask1 = np.zeros(maze_image.shape, dtype=np.uint8)
+	mask2 = np.zeros(maze_image.shape, dtype=np.uint8)
+	skyblue_lower = np.array([85, 100, 20])
+	skyblue_upper = np.array([95, 255, 255])
+	orange_lower = np.array([5, 100, 20])
+	orange_upper = np.array([25, 255, 255])
+	pink_lower = np.array([149, 100, 100])
+	pink_upper = np.array([169, 255, 255])
+	green_lower = np.array([50, 100, 20])
+	green_upper = np.array([70, 255, 255])
+	mask_skyblue = cv2.inRange(hsv, skyblue_lower, skyblue_upper)
+	mask_green = cv2.inRange(hsv, green_lower, green_upper)
+	mask_pink = cv2.inRange(hsv, pink_lower, pink_upper)
+	mask_orange = cv2.inRange(hsv, orange_lower, orange_upper)
+	mask1 = cv2.bitwise_or(mask_skyblue, mask_green, mask1)
+	mask2 = cv2.bitwise_or(mask1, mask_pink, mask2)
+	mask = cv2.bitwise_or(mask2, mask_orange, mask)
+	ret, thresh = cv2.threshold(mask.copy(), 10, 255, cv2.THRESH_BINARY)
+	contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+	for contour in contours:
+		M = cv2.moments(contour)
+		approx = cv2.approxPolyDP(contour, 0.01 * cv2.arcLength(contour, True), True)
+		l1 = []
+		if M["m00"] != 0:
+			x = int(M["m10"] / M["m00"])
+			y = int(M["m01"] / M["m00"])
+			if x != 100:
+				if len(approx) == 3:
+					l2 = [x, y]
+					l1.append(get_shop_number(x, y))
+					l1.append(get_color(x, y, maze_image))
+					l1.append('Triangle')
+					l1.append(l2)
+					medicine_packages_present.append(l1)
+				elif len(approx) == 4:
+					l2 = [x, y]
+					l1.append(get_shop_number(x, y))
+					l1.append(get_color(x, y, maze_image))
+					l1.append('Square')
+					l1.append(l2)
+					# l1.append(y)
+					medicine_packages_present.append(l1)
+				else:
+					l2 = [x, y]
+					l1.append(get_shop_number(x, y))
+					l1.append(get_color(x, y, maze_image))
+					l1.append('Circle')
+					l1.append(l2)
+					# l1.append(y)
+					medicine_packages_present.append(l1)
+		else:
+			x, y = 0, 0
+	medicine_packages_present.sort()
 	##################################################
 
-	return medicine_packages
+	return medicine_packages_present
 
 def detect_arena_parameters(maze_image):
 
@@ -199,7 +341,12 @@ def detect_arena_parameters(maze_image):
 	arena_parameters = {}
 
 	##############	ADD YOUR CODE HERE	##############
-	
+	arena = {'traffic_signals':detect_traffic_signals(maze_image),
+          'horizontal_roads_under_construction':detect_horizontal_roads_under_construction(maze_image),
+          'vertical_roads_under_construction':detect_vertical_roads_under_construction(maze_image),
+          'medicine_packages_present':detect_medicine_packages(maze_image)
+          }
+	arena_parameters.update(arena)
 	##################################################
 	
 	return arena_parameters
